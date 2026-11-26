@@ -1,0 +1,407 @@
+{
+  "name": "LLM-Powered Email Router",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {}
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ],
+      "id": "3748b9d5-a313-46a5-a02e-b8fe4ee07ec1",
+      "name": "Gmail Trigger"
+    },
+    {
+      "parameters": {
+        "inputText": "=Subject:{{ $json.Subject }}\n\nBody:{{ $json.snippet}}\n",
+        "categories": {
+          "categories": [
+            {
+              "category": "customer support",
+              "description": "Emails requesting help, troubleshooting, or guidance for a product or service. Usually describe issues like login errors, bugs, or malfunctioning features. Common keywords: error, issue, problem, help, access, support, fix, reset, troubleshoot."
+            },
+            {
+              "category": "finance/billing",
+              "description": "Emails about payments, invoices, refunds, or subscriptions. The sender wants to confirm, dispute, or update financial details. Common keywords: invoice, payment, refund, billing, charge, subscription, renewal, receipt."
+            },
+            {
+              "category": "high priority",
+              "description": "Urgent or time-sensitive emails about critical issues or outages requiring immediate attention. Common keywords: urgent, ASAP, critical, outage, down, immediate, emergency, escalation."
+            },
+            {
+              "category": "promotion",
+              "description": "Marketing or sales-focused emails promoting offers, discounts, or new products. Tone is upbeat and persuasive. Common keywords: sale, offer, discount, promotion, new feature, upgrade, limited time, exclusive."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.textClassifier",
+      "typeVersion": 1.1,
+      "position": [
+        208,
+        48
+      ],
+      "id": "ebc6ae3d-ebc7-43b6-857d-52821e32013d",
+      "name": "Text Classifier"
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $('Gmail Trigger').item.json.id }}",
+        "labelIds": []
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        608,
+        -288
+      ],
+      "id": "1b98d27a-7ed3-4320-9175-ae6269a2c426",
+      "name": "Add label to message"
+    },
+    {
+      "parameters": {
+        "promptType": "=define",
+        "text": "=Subject:{{ $('Gmail Trigger').item.json.Subject }}\n\nBody:{{ $('Gmail Trigger').item.json.snippet }}",
+        "options": {
+          "systemMessage": "# Role\nYou are **Pranav's AI Assistant**, an expert customer support assistant for **AI Automation Society**.\n\n# Tone\nFriendly, warm, professional, and concise. Write clearly and avoid jargon unless the customer uses it first.\n\n# Responsibilities\n- Answer customer questions accurately and completely, using only verified information.\n- Address the customer's specific question directly before adding any extra detail.\n- Never guess, invent, or assume information (pricing, policies, features, dates, links).\n\n# When You Don't Know the Answer\nIf you cannot find or verify the answer, do not speculate. Politely tell the customer you're unable to confirm it and ask them to reach out to **support@example.com** for further help.\n\n# Email Format\n- Open with a friendly greeting (use the customer's name if known).\n- Give a clear, accurate, well-organized answer.\n- Always sign off exactly as:\n\nBest regards,\nPranav's AI Assistant"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1488,
+        -208
+      ],
+      "id": "ca1699b1-9407-45f1-b1a0-9a45a0b547c4",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini",
+          "cachedResultName": "gpt-5-mini",
+          "cachedResultUrl": ""
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        304,
+        368
+      ],
+      "id": "d6a8a743-029d-4c34-9d1d-d4521c98ca04",
+      "name": "GPT 5 mini"
+    },
+    {
+      "parameters": {
+        "operation": "reply",
+        "messageId": "={{ $('Text Classifier').item.json.id }}",
+        "emailType": "text",
+        "message": "={{ $json.output }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2000,
+        -32
+      ],
+      "id": "d0f16201-9a73-4d0f-bff4-384aae08f647",
+      "name": "Reply to a message"
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $('Gmail Trigger').item.json.id }}",
+        "labelIds": []
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        608,
+        -48
+      ],
+      "id": "0e264f3e-d932-4c19-aa50-80a62bbddd62",
+      "name": "Add label to message1"
+    },
+    {
+      "parameters": {
+        "sendTo": "billing@example.com",
+        "subject": "=New Billing Email:- {{ $('Gmail Trigger').item.json.Subject }}",
+        "emailType": "text",
+        "message": "=Hey Billing team!\n\nWe received a new billing inquiry at {{ $now.format('yyyy-MM-dd hh:mm a') }}.\n\nIt is from {{ $('Gmail Trigger').item.json.from.value[0].name }} you can email them at {{ $('Gmail Trigger').item.json.from.value[0].address }}.\n\nThis is the subject of their email: {{ $('Gmail Trigger').item.json.subject }}\n\nCheers!!!",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        832,
+        -48
+      ],
+      "id": "0408930b-dd1f-4640-bc62-b8ae32fc1700",
+      "name": "Send a message"
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $('Gmail Trigger').item.json.id }}",
+        "labelIds": []
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        608,
+        128
+      ],
+      "id": "dd76950c-3a80-4ef1-9679-01d63476aa4d",
+      "name": "Add label to message2"
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $('Gmail Trigger').item.json.id }}",
+        "labelIds": []
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        608,
+        336
+      ],
+      "id": "8f389479-2593-47ee-88c4-e59b500dd8cb",
+      "name": "Add label to message3"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        1328,
+        -48
+      ],
+      "id": "7488b9bd-7c26-47e2-ba45-bf6194a5c126",
+      "name": "OpenAI Chat Model"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Subject:{{ $('Gmail Trigger').item.json.Subject }}\n\nBody:{{ $('Gmail Trigger').item.json.snippet }}",
+        "options": {
+          "systemMessage": "# Role\nYou are **Pranav's AI Assistant**, an expert finance and billing support assistant for **AI Automation Society**.\n\n# Tone\nFriendly, warm, professional, and concise. Be precise with numbers, dates, and plan names.\n\n# Responsibilities\n- Handle questions about invoices, payments, subscriptions, charges, receipts, refunds, and billing cycles.\n- Answer accurately using only verified information. Never guess or invent amounts, dates, policies, or refund outcomes.\n- Never ask for or repeat full card numbers, bank details, or passwords. If shared, tell the customer not to send them.\n- Do not approve, promise, or process refunds, credits, or exceptions yourself.\n\n# When You Don't Know the Answer or Can't Resolve It\nIf you cannot verify the answer, or the request needs account access, a refund, or a billing exception, do not speculate. Politely tell the customer you're unable to confirm it and ask them to reach out to **support@example.com** for further help.\n\n# Email Format\n- Open with a friendly greeting (use the customer's name if known).\n- Give a clear, accurate, well-organized answer.\n- Always sign off exactly as:\n\nBest regards,\nPranav's AI Assistant"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        832,
+        128
+      ],
+      "id": "54734099-7ee9-4429-9df5-ce018f22c5bf",
+      "name": "AI Agent1"
+    },
+    {
+      "parameters": {
+        "resource": "draft",
+        "subject": "=Re: {{ $('Gmail Trigger').item.json.Subject }}",
+        "message": "={{ $json.output }}",
+        "options": {
+          "threadId": "={{ $('Gmail Trigger').item.json.threadId }}",
+          "sendTo": "={{ $('Gmail Trigger').item.json.From }}"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1200,
+        128
+      ],
+      "id": "3d1238ed-4dbc-4ee9-8106-261e4ffdf468",
+      "name": "Create a draft"
+    },
+    {
+      "parameters": {
+        "operation": "markAsRead",
+        "messageId": "={{ $('Gmail Trigger').item.json.id }}"
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        832,
+        336
+      ],
+      "id": "d52d35e9-e6c5-469c-8766-65a498e7b451",
+      "name": "Mark a message as read"
+    }
+  ],
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Text Classifier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text Classifier": {
+      "main": [
+        [
+          {
+            "node": "Add label to message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Add label to message1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Add label to message2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Add label to message3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add label to message": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Reply to a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add label to message1": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add label to message2": {
+      "main": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent1": {
+      "main": [
+        [
+          {
+            "node": "Create a draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add label to message3": {
+      "main": [
+        [
+          {
+            "node": "Mark a message as read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GPT 5 mini": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Text Classifier",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  }
+}
